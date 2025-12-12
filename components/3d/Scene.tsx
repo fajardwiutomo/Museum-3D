@@ -14,12 +14,14 @@ export function Scene() {
   return (
     <div className="h-screen w-full bg-black">
       <Canvas
-        shadows={false} // Disable shadows for now to save perf
+        shadows={false}
+        dpr={[1, 1.5]} // Limit pixel ratio for mobile performance
         camera={{ position: [0, 1.7, 5], fov: 75 }}
         gl={{ 
             antialias: false, 
-            powerPreference: 'default',
-            failIfMajorPerformanceCaveat: false
+            powerPreference: 'high-performance', // Try requesting better GPU if available
+            failIfMajorPerformanceCaveat: false,
+            preserveDrawingBuffer: true // Sometimes helps with screenshot/context loss
         }}
         frameloop="always"
       >
