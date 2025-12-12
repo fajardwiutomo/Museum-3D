@@ -1,16 +1,21 @@
 'use client';
 
-import { useFrame, useThree } from '@react-three/fiber';
+import { useStore } from '@/store/useStore';
+import { useControlStore } from '@/store/useControlStore';
 import { PointerLockControls } from '@react-three/drei';
+import { useThree, useFrame } from '@react-three/fiber';
 import { useEffect, useRef } from 'react';
 import { Vector3 } from 'three';
-
-import { useStore } from '@/store/useStore';
+import * as THREE from 'three';
 
 const SPEED = 5;
 
 export function Player() {
   const selectedPainting = useStore((state) => state.selectedPainting);
+  const moveState = useControlStore((state) => state.move);
+  const lookState = useControlStore((state) => state.look);
+  const setLook = useControlStore((state) => state.setLook);
+
   const { camera } = useThree();
   const moveForward = useRef(false);
   const moveBackward = useRef(false);
@@ -18,6 +23,7 @@ export function Player() {
   const moveRight = useRef(false);
   const velocity = useRef(new Vector3());
 
+  // ... (Keep existing keyboard listeners) ...
   useEffect(() => {
     const handleKeyDown = (event: KeyboardEvent) => {
       switch (event.code) {
@@ -71,10 +77,24 @@ export function Player() {
   }, []);
 
   useFrame((state, delta) => {
+    // 1. Handle Rotation (Mobile Look)
+    if (lookState.x !== 0 || lookState.y !== 0) {
+        camera.rotation.order = 'YXZ'; // Important for FPS look
+        camera.rotation.y -= lookState.x;
+        camera.rotation.x -= lookState.y;
+        camera.rotation.x = Math.max(-Math.PI / 2, Math.min(Math.PI / 2, camera.rotation.x));
+        
+        // Reset look delta (consume the event)
+        setLook(0, 0); 
+    }
+
+    // 2. Handle Movement
     velocity.current.x = 0;
     velocity.current.z = 0;
 
     const direction = new Vector3();
+    
+    // Keyboard Input
     const frontVector = new Vector3(
       0,
       0,
@@ -86,29 +106,35 @@ export function Player() {
       0
     );
 
+    // Mobile Input (Joystick)
+    // moveState.y usually 1 (forward) to -1 (back). 
+    // R3F forward is -Z. So +y on joystick should be -z.
+    if (Math.abs(moveState.y) > 0.1) frontVector.setZ(-moveState.y);
+    if (Math.abs(moveState.x) > 0.1) sideVector.setX(moveState.x);
+
     direction
       .subVectors(frontVector, sideVector)
       .normalize()
       .multiplyScalar(SPEED * delta);
 
-    if (moveForward.current || moveBackward.current || moveLeft.current || moveRight.current) {
-        camera.translateX(direction.x);
-        camera.translateZ(direction.z);
+    // velocity check
+    // If joystick is active, direction length is 1 * speed.
+    // If we want analog speed control, we shouldn't normalize blindly if using joystick. 
+    // But for simplicity, normalize is fine.
+
+    if (direction.length() > 0) {
+         // Apply camera rotation to movement (except pitch/X)
+         const euler = new THREE.Euler(0, camera.rotation.y, 0, 'YXZ');
+         direction.applyEuler(euler);
+         
+         camera.translateX(direction.x); // Wait, applyEuler rotates it in world space.
+         camera.position.add(direction); // Add world space vector
     }
     
     // Lock height to simulate walking on floor
     camera.position.setY(1.7);
   });
 
-  // Fallback if Pointer Lock is not supported or for easier debugging
-  // If the user is in a restricted environment, PointerLock might be defined but fail. 
-  // We can't easily catch the Drei error, but we can provide a prop or just use OrbitControls if we want.
-  // For now, let's strictly use PointerLock but if the user demanded "Mode Berjalan", it's the right choice.
-  // However, since it's failing, let's add OrbitControls conditionally?
-  // Let's actually just return PointerLockControls. 
-  // If the user gets an error, it's likely the browser.
-  // But to be helpful, let's try to wrap it in a check.
-  
   // Safe check for server-side
   if (typeof document !== 'undefined' && !document.body.requestPointerLock) {
      const { OrbitControls } = require('@react-three/drei');

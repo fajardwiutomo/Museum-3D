@@ -5,6 +5,7 @@ import { DetailModal } from '@/components/ui/DetailModal';
 import { MousePointer2, LayoutDashboard } from 'lucide-react';
 import Link from 'next/link';
 import { WebGLErrorBoundary } from '@/components/ui/WebGLErrorBoundary';
+import { MobileOverlay } from '@/components/ui/MobileOverlay';
 
 const Scene = dynamic(() => import('@/components/3d/Scene').then(mod => mod.Scene), { ssr: false });
 import { useStore } from '@/store/useStore';
@@ -18,6 +19,10 @@ export default function Home() {
         {/* 3D Scene */}
         <Scene />
       </WebGLErrorBoundary>
+      
+      {/* Mobile Controls Overlay */}
+      <MobileOverlay />
+
 
       {/* UI Overlay */}
       <div className="absolute inset-0 pointer-events-none z-10 flex flex-col justify-between p-8">
